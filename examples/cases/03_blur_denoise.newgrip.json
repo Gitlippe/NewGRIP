@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "source-1", "op": "source.image", "inputs": [], "outputs": [{ "name": "out", "type": "image" }] },
+    {
+      "id": "step-1",
+      "op": "opencv.gaussianBlur",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "image" }],
+      "params": [{ "name": "kernel", "view": "slider", "value": 9, "min": 1, "max": 31 }]
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": { "nodeId": "source-1", "socket": "out" }, "to": { "nodeId": "step-1", "socket": "in" } }
+  ]
+}

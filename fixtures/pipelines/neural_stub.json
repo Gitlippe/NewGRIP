@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "source-1",
+      "op": "source.image",
+      "inputs": [],
+      "outputs": [{ "name": "out", "type": "image" }]
+    },
+    {
+      "id": "step-1",
+      "op": "opencv.gaussianBlur",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "image" }],
+      "params": [{ "name": "kernel", "view": "slider", "value": 5, "min": 1, "max": 31 }]
+    },
+    {
+      "id": "step-2",
+      "op": "nn.classify_stub",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "json" }],
+      "params": [{ "name": "model", "view": "select", "value": "mobilenet", "options": ["mobilenet", "resnet18"] }]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": { "nodeId": "source-1", "socket": "out" },
+      "to": { "nodeId": "step-1", "socket": "in" }
+    },
+    {
+      "id": "e2",
+      "from": { "nodeId": "step-1", "socket": "out" },
+      "to": { "nodeId": "step-2", "socket": "in" }
+    }
+  ]
+}

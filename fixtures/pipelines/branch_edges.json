@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "source-1",
+      "op": "source.image",
+      "inputs": [],
+      "outputs": [{ "name": "out", "type": "image" }]
+    },
+    {
+      "id": "step-1",
+      "op": "opencv.canny",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "image" }],
+      "params": [
+        { "name": "low", "view": "slider", "value": 50, "min": 0, "max": 255 },
+        { "name": "high", "view": "slider", "value": 150, "min": 0, "max": 255 }
+      ]
+    },
+    {
+      "id": "step-2",
+      "op": "opencv.sobel",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "image" }],
+      "params": [{ "name": "scale", "view": "slider", "value": 2, "min": 1, "max": 8 }]
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": { "nodeId": "source-1", "socket": "out" },
+      "to": { "nodeId": "step-1", "socket": "in" }
+    },
+    {
+      "id": "e2",
+      "from": { "nodeId": "source-1", "socket": "out" },
+      "to": { "nodeId": "step-2", "socket": "in" }
+    }
+  ]
+}

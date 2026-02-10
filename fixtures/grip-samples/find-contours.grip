@@ -1,0 +1,6 @@
+<grip:Pipeline>
+  <steps>
+    <step id="step-1" operation="opencv.threshold" />
+    <step id="step-2" operation="opencv.canny" />
+  </steps>
+</grip:Pipeline>

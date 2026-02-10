@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "source-1", "op": "source.image", "inputs": [], "outputs": [{ "name": "out", "type": "image" }] },
+    { "id": "step-1", "op": "opencv.findContours", "inputs": [{ "name": "in", "type": "image" }], "outputs": [{ "name": "out", "type": "image" }] },
+    { "id": "step-2", "op": "opencv.convexHulls", "inputs": [{ "name": "in", "type": "image" }], "outputs": [{ "name": "out", "type": "image" }] },
+    {
+      "id": "step-3",
+      "op": "opencv.filterContours",
+      "inputs": [{ "name": "in", "type": "image" }],
+      "outputs": [{ "name": "out", "type": "image" }],
+      "params": [{ "name": "minArea", "view": "slider", "value": 3000, "min": 0, "max": 20000 }]
+    }
+  ],
+  "edges": [
+    { "id": "e1", "from": { "nodeId": "source-1", "socket": "out" }, "to": { "nodeId": "step-1", "socket": "in" } },
+    { "id": "e2", "from": { "nodeId": "step-1", "socket": "out" }, "to": { "nodeId": "step-2", "socket": "in" } },
+    { "id": "e3", "from": { "nodeId": "step-2", "socket": "out" }, "to": { "nodeId": "step-3", "socket": "in" } }
+  ]
+}

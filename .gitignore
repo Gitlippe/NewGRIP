@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.venv/
+
+# Build outputs
+dist/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Vite cache
+.vite/
+
+# Artifacts and caches
+.artifacts/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment
+.env
+.env.local

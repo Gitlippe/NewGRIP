@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "source-1", "op": "source.image", "inputs": [], "outputs": [{ "name": "out", "type": "image" }] },
+    { "id": "step-1", "op": "opencv.noop", "inputs": [{ "name": "in", "type": "image" }], "outputs": [{ "name": "out", "type": "image" }] }
+  ],
+  "edges": [
+    { "id": "e1", "from": { "nodeId": "source-1", "socket": "out" }, "to": { "nodeId": "step-1", "socket": "in" } }
+  ]
+}
