@@ -56,7 +56,6 @@ export async function runPreview(
   traces: Array<{ nodeId: string; status: string }>;
   outputs: Record<string, unknown>;
 }> {
-  // Send image as base64 so the backend doesn't need file-path resolution
   let inputImageBase64: string | undefined;
   if (inputImagePath && !inputImagePath.startsWith("http")) {
     inputImageBase64 = await fetchImageAsBase64(inputImagePath);
@@ -67,4 +66,20 @@ export async function runPreview(
     body: JSON.stringify({ pipeline, inputImagePath, inputImageBase64 }),
   });
   return response.json();
+}
+
+export async function generateCode(
+  pipeline: PipelineDocumentV1,
+  language: string,
+  className: string,
+): Promise<{ filename: string; content: string }> {
+  const response = await fetch(`${API_BASE}/v1/codegen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pipeline, language, className }),
+  });
+  if (!response.ok) {
+    throw new Error(`Code generation failed (${response.status})`);
+  }
+  return response.json() as Promise<{ filename: string; content: string }>;
 }

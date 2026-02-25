@@ -30,8 +30,8 @@ for (const vp of viewports) {
   await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
   await page.locator(".react-flow__node").first().click();
   await page.locator(".react-flow__node").nth(1).click();
-  await page.locator(".actionRow .actionButton", { hasText: "Validate" }).click();
-  await page.locator(".actionRow .actionButton", { hasText: "Run Preview" }).click();
+  await page.locator(".toolbar button", { hasText: "Validate" }).click();
+  await page.locator(".toolbar button", { hasText: "Run Preview" }).click();
   await page.waitForTimeout(600);
 
   const metrics = await page.evaluate(() => {

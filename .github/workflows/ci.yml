@@ -82,6 +82,24 @@ jobs:
           nohup uvicorn newgrip_engine.app:app --host 127.0.0.1 --port 8000 >/tmp/newgrip-engine.log 2>&1 &
           cd ../../apps/web
           nohup pnpm dev --host 127.0.0.1 --port 5173 >/tmp/newgrip-web.log 2>&1 &
+      - name: Wait for services
+        run: |
+          echo "Waiting for backend..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health > /dev/null 2>&1; then
+              echo "Backend ready"
+              break
+            fi
+            sleep 1
+          done
+          echo "Waiting for frontend..."
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:5173 > /dev/null 2>&1; then
+              echo "Frontend ready"
+              break
+            fi
+            sleep 1
+          done
       - name: Run artifact and visual audits
         run: |
           python scripts/run_backend_artifact_validation.py

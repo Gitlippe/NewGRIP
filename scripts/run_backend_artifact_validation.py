@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from pathlib import Path
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 
@@ -12,17 +14,27 @@ FIXTURE_DIR = ROOT / "fixtures" / "pipelines"
 ARTIFACT_DIR = ROOT / ".artifacts" / "verification"
 IMAGE_PATH = ROOT / "examples" / "assets" / "web-test-image.jpg"
 API_BASE = "http://127.0.0.1:8000"
+MAX_RETRIES = 10
+RETRY_DELAY = 2
 
 
-def post_json(path: str, payload: dict) -> dict:
+def post_json(path: str, payload: dict, *, retries: int = 0) -> dict:
     req = Request(
         f"{API_BASE}{path}",
         data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(req) as response:  # noqa: S310
-        return json.loads(response.read().decode("utf-8"))
+    for attempt in range(retries + 1):
+        try:
+            with urlopen(req) as response:  # noqa: S310
+                return json.loads(response.read().decode("utf-8"))
+        except (URLError, ConnectionError) as exc:
+            if attempt < retries:
+                print(f"  Retry {attempt + 1}/{retries} for {path}: {exc}")
+                time.sleep(RETRY_DELAY)
+            else:
+                raise
 
 
 def hash_output(value: object) -> str:
@@ -33,9 +45,15 @@ def main() -> None:
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
     report: dict = {"pipelines": []}
 
+    first = True
     for fixture in sorted(FIXTURE_DIR.glob("*.json")):
         pipeline = json.loads(fixture.read_text(encoding="utf-8"))
-        validate = post_json("/v1/pipelines/validate", {"pipeline": pipeline})
+        validate = post_json(
+            "/v1/pipelines/validate",
+            {"pipeline": pipeline},
+            retries=MAX_RETRIES if first else 0,
+        )
+        first = False
         run = post_json(
             "/v1/pipelines/run",
             {"pipeline": pipeline, "inputImagePath": str(IMAGE_PATH)},
