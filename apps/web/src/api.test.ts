@@ -14,6 +14,7 @@ describe("loadCatalog", () => {
 
   it("parses operations from backend response", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         operations: [
           {
@@ -37,6 +38,7 @@ describe("loadCatalog", () => {
 
   it("defaults category to General when missing", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         operations: [{ key: "test", label: "Test", executeOp: "test.op" }],
       }),
@@ -48,6 +50,7 @@ describe("loadCatalog", () => {
 
   it("defaults outputType to image when not json", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         operations: [{ key: "test", label: "Test", outputType: "image" }],
       }),
@@ -59,6 +62,7 @@ describe("loadCatalog", () => {
 
   it("returns empty array when no operations field", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({}),
     });
 
@@ -76,6 +80,7 @@ describe("loadCatalog", () => {
 
   it("parses inputs and outputs from backend response", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         operations: [
           {
@@ -106,6 +111,7 @@ describe("loadCatalog", () => {
 
   it("defaults inputs and outputs when not provided", async () => {
     (globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         operations: [
           {

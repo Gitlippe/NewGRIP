@@ -272,10 +272,13 @@ export function App() {
   const [traceLines, setTraceLines] = useState<string[]>([]);
   const [operationTemplates, setOperationTemplates] =
     useState<OpTemplate[]>(fallbackTemplates);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [autoRun, setAutoRun] = useState(false);
   const [connectFrom, setConnectFrom] = useState<ConnectFromState | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showImportMenu, setShowImportMenu] = useState(false);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
+  const nodeCounter = useRef(2);
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) ?? nodes[0],
@@ -310,7 +313,6 @@ export function App() {
     [nodes, errorNodeIds],
   );
 
-  // Load operation catalog from backend on mount
   useEffect(() => {
     const load = async () => {
       try {
@@ -320,18 +322,20 @@ export function App() {
         }
       } catch {
         // Fall back to built-in templates
+      } finally {
+        setCatalogLoading(false);
       }
     };
     void load();
   }, []);
 
-  const addStep = (template: OpTemplate) => {
-    const nextIdx = nodes.filter((n) => n.id.startsWith("step-")).length + 1;
-    const nodeId = `step-${nextIdx + 1}`;
+  const addStep = useCallback((template: OpTemplate) => {
+    const idx = nodeCounter.current++;
+    const nodeId = `step-${idx}`;
 
     // Position: if in connect mode, place to the right of the source node
     let posX = 380;
-    let posY = 100 + nextIdx * 120;
+    let posY = 100 + idx * 120;
     const pending = connectFrom;
     if (pending) {
       const srcNode = nodes.find((n) => n.id === pending.nodeId);
@@ -348,7 +352,7 @@ export function App() {
         type: "pipelineNode",
         position: { x: posX, y: posY },
         data: {
-          label: `${template.label} ${nextIdx + 1}`,
+          label: `${template.label} ${idx}`,
           op: template.displayOp,
           executeOp: template.executeOp,
           outputType: template.outputType,
@@ -379,7 +383,7 @@ export function App() {
       // Fit view after the new node + edge render
       setTimeout(() => reactFlowRef.current?.fitView({ padding: 0.15, duration: 300 }), 50);
     }
-  };
+  }, [connectFrom, nodes, setNodes, setEdges]);
 
   const onConnect = (connection: Connection) => {
     setEdges((eds) => addEdge(connection, eds));
@@ -420,7 +424,7 @@ export function App() {
                   p.name === name ? { ...p, value } : p,
                 ),
                 imageUrl:
-                  n.id === "source-1" && name === "imageUrl"
+                  n.data.op.startsWith("source.") && name === "imageUrl"
                     ? String(value)
                     : n.data.imageUrl,
               },
@@ -532,6 +536,54 @@ export function App() {
     input.click();
   };
 
+  const handleImportGRIP = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xml,.grip";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const xml = await file.text();
+        const { importGrip } = await import("./api");
+        const result = await importGrip(xml);
+        const doc = result.pipeline;
+        const importedNodes: Node<NodeData>[] = doc.nodes.map((n) => ({
+          id: n.id,
+          type: "pipelineNode",
+          position: n.position,
+          data: {
+            label: n.label,
+            op: n.op,
+            executeOp: n.op,
+            outputType: (n.outputs?.[0]?.type === "json" ? "json" : "image") as "image" | "json",
+            params: n.params,
+            inputs: n.inputs,
+            outputs: n.outputs,
+            imageUrl: n.op === "source.image" ? (n.params.find((p) => p.name === "imageUrl")?.value as string) ?? sourceImageUrl : undefined,
+          },
+        }));
+        const importedEdges: Edge[] = doc.edges.map((e) => ({
+          id: e.id,
+          source: e.from.nodeId,
+          target: e.to.nodeId,
+          sourceHandle: e.from.socket,
+          targetHandle: e.to.socket,
+        }));
+        setNodes(importedNodes);
+        setEdges(importedEdges);
+        setOutputViews([]);
+        setTraceLines([]);
+        const warn = result.warnings.length > 0 ? ` (${result.warnings.length} warnings)` : "";
+        setStatus(`GRIP imported${warn}`);
+        setTimeout(() => reactFlowRef.current?.fitView({ padding: 0.15, duration: 300 }), 100);
+      } catch (err) {
+        setStatus(`GRIP import failed: ${String(err)}`);
+      }
+    };
+    input.click();
+  };
+
   const handleCodegen = async (language: string) => {
     setShowExportMenu(false);
     setStatus(`Generating ${language} code...`);
@@ -550,13 +602,12 @@ export function App() {
     }
   };
 
-  // Close export menu when clicking elsewhere
   useEffect(() => {
-    if (!showExportMenu) return;
-    const close = () => setShowExportMenu(false);
+    if (!showExportMenu && !showImportMenu) return;
+    const close = () => { setShowExportMenu(false); setShowImportMenu(false); };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, [showExportMenu]);
+  }, [showExportMenu, showImportMenu]);
 
   const handleDeleteSelected = useCallback(() => {
     const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
@@ -583,6 +634,7 @@ export function App() {
         templates={operationTemplates}
         onAddStep={addStep}
         connectFrom={connectFrom}
+        loading={catalogLoading}
       />
 
       <div className="canvasArea">
@@ -600,9 +652,20 @@ export function App() {
             Auto Run
           </label>
           <div className="toolbarSeparator" />
-          <button className="toolbarButton" onClick={handleImportJSON}>
-            Import
-          </button>
+          <div className="dropdownWrapper">
+            <button
+              className="toolbarButton"
+              onClick={(e) => { e.stopPropagation(); setShowImportMenu((v) => !v); }}
+            >
+              Import
+            </button>
+            {showImportMenu && (
+              <div className="dropdownMenu" onClick={(e) => e.stopPropagation()}>
+                <button className="dropdownItem" onClick={() => { setShowImportMenu(false); handleImportJSON(); }}>Pipeline JSON</button>
+                <button className="dropdownItem" onClick={() => { setShowImportMenu(false); handleImportGRIP(); }}>GRIP XML</button>
+              </div>
+            )}
+          </div>
           <div className="dropdownWrapper">
             <button
               className="toolbarButton"
@@ -620,7 +683,7 @@ export function App() {
               </div>
             )}
           </div>
-          <div className={`toolbarStatus${status === "Running preview..." || status === "Validating..." ? " toolbarStatusRunning" : status.startsWith("Preview failed") || status.startsWith("Validation failed") || status.startsWith("Import failed") || status.startsWith("Code generation failed") ? " toolbarStatusError" : status === "Preview updated" || status === "Pipeline valid" || status.startsWith("Exported") || status === "Pipeline imported" ? " toolbarStatusSuccess" : ""}`}>
+          <div className={`toolbarStatus${status === "Running preview..." || status === "Validating..." ? " toolbarStatusRunning" : status.startsWith("Preview failed") || status.startsWith("Validation failed") || status.startsWith("Import failed") || status.startsWith("Code generation failed") || status.startsWith("GRIP import failed") ? " toolbarStatusError" : status === "Preview updated" || status === "Pipeline valid" || status.startsWith("Exported") || status === "Pipeline imported" || status.startsWith("GRIP imported") ? " toolbarStatusSuccess" : ""}`}>
             {status}
           </div>
         </div>

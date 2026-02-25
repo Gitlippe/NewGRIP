@@ -4,6 +4,7 @@ export const API_BASE = "http://127.0.0.1:8000";
 
 export async function loadCatalog(): Promise<OpTemplate[]> {
   const response = await fetch(`${API_BASE}/v1/operations`);
+  if (!response.ok) return [];
   const payload = await response.json();
   const parsed: OpTemplate[] = (payload.operations ?? []).map((op: any) => ({
     key: String(op.key),
@@ -27,6 +28,7 @@ export async function validatePipeline(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pipeline }),
   });
+  if (!response.ok) throw new Error("Validation request failed");
   return response.json() as Promise<{ ok: boolean; errors: string[] }>;
 }
 
@@ -65,7 +67,22 @@ export async function runPreview(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pipeline, inputImagePath, inputImageBase64 }),
   });
+  if (!response.ok) throw new Error("Preview request failed");
   return response.json();
+}
+
+export async function importGrip(
+  xml: string,
+): Promise<{ pipeline: PipelineDocumentV1; warnings: string[] }> {
+  const response = await fetch(`${API_BASE}/v1/projects/import/grip`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ xml }),
+  });
+  if (!response.ok) {
+    throw new Error(`GRIP import failed (${response.status})`);
+  }
+  return response.json() as Promise<{ pipeline: PipelineDocumentV1; warnings: string[] }>;
 }
 
 export async function generateCode(

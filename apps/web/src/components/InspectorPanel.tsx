@@ -93,7 +93,7 @@ export function InspectorPanel({
           {selectedOutputViews.length > 0 ? (
             selectedOutputViews.map((view) => (
               <div key={view.key} className="previewCard">
-                <div className="inspectorLabel">{view.key.split(".").slice(1).join(".")}</div>
+                <div className="inspectorLabel">{view.key.split(".").slice(1).join(".").replace(/^\w/, (c) => c.toUpperCase())}</div>
                 {view.kind === "image" ? (
                   <img
                     className="previewImage"
@@ -128,7 +128,7 @@ export function InspectorPanel({
         ) : (
           outputViews.map((view) => (
             <div key={view.key} className="previewCard">
-              <div className="inspectorLabel">{view.title}</div>
+              <div className="inspectorLabel">{view.title.replace(/^\w/, (c) => c.toUpperCase()).replace(/\./g, " · ")}</div>
               {view.kind === "image" ? (
                 <img
                   className="previewImage"
