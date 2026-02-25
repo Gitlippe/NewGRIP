@@ -28,8 +28,8 @@ const browser = await chromium.launch({ headless: true });
 for (const vp of viewports) {
   const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height } });
   await page.goto("http://127.0.0.1:5173/", { waitUntil: "networkidle" });
-  await page.locator(".react-flow__node").first().click();
-  await page.locator(".react-flow__node").nth(1).click();
+  await page.locator(".react-flow__node").first().click({ force: true });
+  await page.locator(".react-flow__node").nth(1).click({ force: true });
   await page.locator(".toolbar button", { hasText: "Validate" }).click();
   await page.locator(".toolbar button", { hasText: "Run Preview" }).click();
   await page.waitForTimeout(600);

@@ -12,7 +12,7 @@ import ReactFlow, {
   useEdgesState,
   useNodesState,
 } from "reactflow";
-import { loadCatalog, validatePipeline, runPreview, generateCode } from "./api";
+import { loadCatalog, validatePipeline, runPreview, generateCode, importGrip } from "./api";
 import { InspectorPanel } from "./components/InspectorPanel";
 import { OperationPalette } from "./components/OperationPalette";
 import { nodeTypes } from "./components/PipelineNode";
@@ -545,7 +545,7 @@ export function App() {
       if (!file) return;
       try {
         const xml = await file.text();
-        const { importGrip } = await import("./api");
+        
         const result = await importGrip(xml);
         const doc = result.pipeline;
         const importedNodes: Node<NodeData>[] = doc.nodes.map((n) => ({
