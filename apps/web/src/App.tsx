@@ -12,11 +12,11 @@ import ReactFlow, {
   useEdgesState,
   useNodesState,
 } from "reactflow";
-import { loadCatalog, validatePipeline, runPreview } from "./api";
+import { loadCatalog, validatePipeline, runPreview, generateCode } from "./api";
 import { InspectorPanel } from "./components/InspectorPanel";
 import { OperationPalette } from "./components/OperationPalette";
 import { nodeTypes } from "./components/PipelineNode";
-import type { ConnectFromState, NodeData, OpTemplate, OutputView } from "./types";
+import type { ConnectFromState, NodeData, OpTemplate, OutputView, PipelineDocumentV1 } from "./types";
 import { findTypeMismatches, outputToViews, sourceImageUrl, toPipeline } from "./utils";
 
 export const fallbackTemplates: OpTemplate[] = [
@@ -274,6 +274,7 @@ export function App() {
     useState<OpTemplate[]>(fallbackTemplates);
   const [autoRun, setAutoRun] = useState(false);
   const [connectFrom, setConnectFrom] = useState<ConnectFromState | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const reactFlowRef = useRef<ReactFlowInstance | null>(null);
 
   const selectedNode = useMemo(
@@ -475,6 +476,107 @@ export function App() {
     return () => clearTimeout(autoRunTimer.current);
   }, [autoRun, handleRunPreview]);
 
+  const handleExportJSON = () => {
+    const blob = new Blob([JSON.stringify(pipeline, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pipeline.newgrip.json";
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
+
+  const handleImportJSON = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,.newgrip.json";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const doc = JSON.parse(text) as PipelineDocumentV1;
+        const importedNodes: Node<NodeData>[] = doc.nodes.map((n) => ({
+          id: n.id,
+          type: "pipelineNode",
+          position: n.position,
+          data: {
+            label: n.label,
+            op: n.op,
+            executeOp: n.op,
+            outputType: (n.outputs?.[0]?.type === "json" ? "json" : "image") as "image" | "json",
+            params: n.params,
+            inputs: n.inputs,
+            outputs: n.outputs,
+            imageUrl: n.op === "source.image" ? (n.params.find((p) => p.name === "imageUrl")?.value as string) ?? sourceImageUrl : undefined,
+          },
+        }));
+        const importedEdges: Edge[] = doc.edges.map((e) => ({
+          id: e.id,
+          source: e.from.nodeId,
+          target: e.to.nodeId,
+          sourceHandle: e.from.socket,
+          targetHandle: e.to.socket,
+        }));
+        setNodes(importedNodes);
+        setEdges(importedEdges);
+        setOutputViews([]);
+        setTraceLines([]);
+        setStatus("Pipeline imported");
+        setTimeout(() => reactFlowRef.current?.fitView({ padding: 0.15, duration: 300 }), 100);
+      } catch {
+        setStatus("Import failed: invalid file");
+      }
+    };
+    input.click();
+  };
+
+  const handleCodegen = async (language: string) => {
+    setShowExportMenu(false);
+    setStatus(`Generating ${language} code...`);
+    try {
+      const result = await generateCode(pipeline, language, "Pipeline");
+      const blob = new Blob([result.content], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = result.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setStatus(`Exported ${result.filename}`);
+    } catch (error) {
+      setStatus(`Code generation failed: ${String(error)}`);
+    }
+  };
+
+  // Close export menu when clicking elsewhere
+  useEffect(() => {
+    if (!showExportMenu) return;
+    const close = () => setShowExportMenu(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [showExportMenu]);
+
+  const handleDeleteSelected = useCallback(() => {
+    const selectedNodeIds = nodes.filter((n) => n.selected).map((n) => n.id);
+    if (selectedNodeIds.length === 0) return;
+    setNodes((prev) => prev.filter((n) => !n.selected));
+    setEdges((prev) => prev.filter((e) => !selectedNodeIds.includes(e.source) && !selectedNodeIds.includes(e.target)));
+  }, [nodes, setNodes, setEdges]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        handleDeleteSelected();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [handleDeleteSelected]);
+
   return (
     <div className="appShell">
       <OperationPalette
@@ -497,7 +599,28 @@ export function App() {
             </div>
             Auto Run
           </label>
-          <div className={`toolbarStatus${status === "Running preview..." || status === "Validating..." ? " toolbarStatusRunning" : status.startsWith("Preview failed") || status.startsWith("Validation failed") ? " toolbarStatusError" : status === "Preview updated" || status === "Pipeline valid" ? " toolbarStatusSuccess" : ""}`}>
+          <div className="toolbarSeparator" />
+          <button className="toolbarButton" onClick={handleImportJSON}>
+            Import
+          </button>
+          <div className="dropdownWrapper">
+            <button
+              className="toolbarButton"
+              onClick={(e) => { e.stopPropagation(); setShowExportMenu((v) => !v); }}
+            >
+              Export
+            </button>
+            {showExportMenu && (
+              <div className="dropdownMenu" onClick={(e) => e.stopPropagation()}>
+                <button className="dropdownItem" onClick={handleExportJSON}>Pipeline JSON</button>
+                <div className="dropdownDivider" />
+                <button className="dropdownItem" onClick={() => handleCodegen("python")}>Python Code</button>
+                <button className="dropdownItem" onClick={() => handleCodegen("java")}>Java Code</button>
+                <button className="dropdownItem" onClick={() => handleCodegen("cpp")}>C++ Code</button>
+              </div>
+            )}
+          </div>
+          <div className={`toolbarStatus${status === "Running preview..." || status === "Validating..." ? " toolbarStatusRunning" : status.startsWith("Preview failed") || status.startsWith("Validation failed") || status.startsWith("Import failed") || status.startsWith("Code generation failed") ? " toolbarStatusError" : status === "Preview updated" || status === "Pipeline valid" || status.startsWith("Exported") || status === "Pipeline imported" ? " toolbarStatusSuccess" : ""}`}>
             {status}
           </div>
         </div>
@@ -513,6 +636,8 @@ export function App() {
             onPaneClick={onPaneClick}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onInit={(instance) => { reactFlowRef.current = instance; }}
+            deleteKeyCode={null}
+            edgesUpdatable
             fitView
           >
             <MiniMap />

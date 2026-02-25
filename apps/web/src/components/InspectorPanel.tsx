@@ -36,24 +36,37 @@ export function InspectorPanel({
 
           {selectedNode.data.params.map((param) => (
             <div key={param.name} className="inspectorSection">
-              <label className="inspectorLabel">{param.name}</label>
+              <label className="inspectorLabel">
+                {param.name}
+                {param.view === "slider" && (
+                  <span className="paramValue">{String(param.value)}</span>
+                )}
+              </label>
               {param.view === "slider" ? (
-                <input
-                  className="formControl"
-                  type="range"
-                  min={param.min ?? 0}
-                  max={param.max ?? 255}
-                  value={Number(param.value)}
-                  onChange={(e) =>
-                    onParamChange(param.name, Number(e.target.value))
-                  }
-                />
+                <div className="sliderRow">
+                  <span className="sliderBound">{param.min ?? 0}</span>
+                  <input
+                    className="formControl sliderInput"
+                    type="range"
+                    min={param.min ?? 0}
+                    max={param.max ?? 255}
+                    value={Number(param.value)}
+                    onChange={(e) =>
+                      onParamChange(param.name, Number(e.target.value))
+                    }
+                  />
+                  <span className="sliderBound">{param.max ?? 255}</span>
+                </div>
               ) : param.view === "checkbox" ? (
-                <input
-                  type="checkbox"
-                  checked={Boolean(param.value)}
-                  onChange={(e) => onParamChange(param.name, e.target.checked)}
-                />
+                <label className="checkboxRow">
+                  <input
+                    type="checkbox"
+                    className="checkboxInput"
+                    checked={Boolean(param.value)}
+                    onChange={(e) => onParamChange(param.name, e.target.checked)}
+                  />
+                  <span className="checkboxLabel">{Boolean(param.value) ? "Enabled" : "Disabled"}</span>
+                </label>
               ) : param.view === "select" ? (
                 <select
                   className="formControl"
@@ -101,7 +114,7 @@ export function InspectorPanel({
               alt="Source image"
             />
           ) : (
-            <div className="statusCard">Run preview to see output.</div>
+            <div className="statusCard">Run preview to see rendered output.</div>
           )}
         </>
       ) : null}
